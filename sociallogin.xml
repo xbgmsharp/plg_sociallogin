@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<install ttype="plugin" group="system" version="2.5">
+	<name>Social Login</name>
+	<version>0.7.0</version>
+	<creationDate>2011-05-27</creationDate>
+	<author>IVM-TC Wien | Social Login project</author>
+	<authorEmail>socialmedia@ivm.at</authorEmail>
+	<authorUrl>http://sociallogin.sourceforge.net</authorUrl>
+	<copyright>(c) 2011 IVM Technical Consultants Wien</copyright>
+	<license>GNU/GPL v3, http://www.gnu.org/copyleft/gpl.html</license>
+	<description>Update for Joomla2.5. Plugin for the Social Login Joomla! extension. http://sociallogin.sourceforge.net</description>
+	<files>
+		<filename plugin="sociallogin">sociallogin.php</filename>
+	</files>
+	<config>
+		<fields name="params">
+			<fieldset name="basic">
+				<field name="login" type="menuitem" default="" disable="separator" label="Login Redirection URL" description="PARAMLOGINREDIRECTURL" />
+				<field name="usecurl" type="radio" default="1" label="Use curl library" description="The best option is to
+	use the php curl library. If for some reason you can not install this on your web server, then you need to switch this off.
+	In this case you need to switch on the php parameter allow_url_fopen, which is not adviceable due to possible security issues.">
+					<option value="0">No</option>
+					<option value="1">Yes</option>
+				</field>
+				<field name="fakemail" type="radio" default="1" label="Use dummy mail" description="Use a dummy mail address for the users that login with RPX. Some community sites like facebook don't reveil the mail address of the user. In this case SocialLogin for Joomla! will create a dummy (non-existing) address. If this option is switched on, it will create dummy addresses even if a real mail address is available.">
+					<option value="0">No</option>
+					<option value="1">Yes</option>
+				</field>
+			</fieldset>
+		</fields>
+	</config>
+</install>
