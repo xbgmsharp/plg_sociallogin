@@ -4,7 +4,7 @@
  * Does all the magic!
  *
  * @package                     Social Login
- * @version                     1.0.0
+ * @version                     1.1.0
  *
  * @author                      xbgmsharp@gmail.com
  * @link                        https://github.com/xbgmsharp/plg_sociallogin
@@ -24,11 +24,6 @@ class plgSystemSocialLogin extends JPlugin
 
 	function onAfterInitialise()
 	{
-		// just startup
-		$mainframe =& JFactory::getApplication();
-		$option = JRequest::getCmd('option');
-		//global $mybaseurl;
-
 		if((isset($_GET['token']))||(isset($_POST['token'])))
 		{
 			if (isset($_GET['token']))
@@ -39,11 +34,9 @@ class plgSystemSocialLogin extends JPlugin
 			{
 				$token = $_POST['token'];
 			}
-
+			$token = $_GET['token'] ? $_GET['token'] : $_POST['token'];
 			$apiKey = $this->params->get('apikey');
-			$post_data = array('token' => $token,
-					 'apiKey' => $apiKey,
-					 'format' => 'json');
+			$post_data = array('token' => $token, 'apiKey' => $apiKey, 'format' => 'json');
 
 			if ($this->params->get('usecurl') == 1)
 			{
@@ -104,8 +97,8 @@ class plgSystemSocialLogin extends JPlugin
                                         }
                                         else if (isset($auth_info['profile']['name']['email']))
                                         {
- 	                                        $email = $auth_info['profile']['email'];
-                                         }
+						$email = $auth_info['profile']['email'];
+					}
 					// Check if a use exist with this email
 	                                $query = "SELECT id FROM #__users WHERE email='".$email."'";
 	                                $db->setQuery($query);
@@ -203,25 +196,27 @@ class plgSystemSocialLogin extends JPlugin
 					$instance->set('usertype' , 	'');
 					$instance->set('groups' , 	array($defaultUserGroup));
 
-					print "Set Parameters\n<br/>";
-					// Force Parameters
-					//$language = $this->params->get('language')
-					//$timezone = $this->params->get('timezone')
-					$instance->setParam("language", "es-ES");
-					$instance->setParam("timezone", "Europe/Madrid");
+					//echo "Set Parameters\n<br/>";
+					// Force override parameters
+					if ( $this->params->get('language') != "")
+					{
+						$instance->setParam("language", $this->params->get('language'));
+					}
+					if ( $this->params->get('timezone') != "")
+					{
+						$instance->setParam("timezone", $this->params->get('timezone'));
+					}
 
 					print "Save user in DB\n<br/>";
 					// Save user
 					if (!$instance->save())
 					{
 						echo "Error creating new user\n<br/>";
-						JError::raiseWarning(500, $instance->getError());
 						JError::raiseError(500, $instance->getError());
 						// updating value
 						if (!$instance->save(true))
 						{
 							echo "Again Error not a new user\n<br/>";
-							JError::raiseWarning(500, $instance->getError());
 							JError::raiseError(500, $instance->getError());
 						}
 					}
@@ -264,8 +259,15 @@ class plgSystemSocialLogin extends JPlugin
 					if (isset($auth_info['profile']['name']['formatted']))
 					{
 						//$instance->load(intval($user->get('id')));
-						$instance->setParam("language", "es-ES");
-						$instance->setParam("timezone", "Europe/Madrid");
+	                                        // Force override parameters
+	                                        if ( $this->params->get('language') != "")
+	                                        {
+	                                                $instance->setParam("language", $this->params->get('language'));
+	                                        }
+	                                        if ( $this->params->get('timezone') != "")
+	                                        {
+							$instance->setParam("timezone", $this->params->get('timezone'));
+						}
 						$instance->save(true);
 						$displayName = $auth_info['profile']['name']['formatted'];
 						$sqluser = "UPDATE #__users SET `name` = '". $displayName. "' WHERE `id` = '". $user->get('id') ."';";
@@ -303,6 +305,7 @@ class plgSystemSocialLogin extends JPlugin
 					{
 						/* Sync old ABPRO request to new register user */
 						// Maybe Improve request all in one.
+						// UPDATE #__sv_apptpro2_requests SET user_id='".intval($user->get('id'))."', name='".mysql_real_escape_string($user->get('name'))."' WHERE email='".$user->get('email')."';
 						$sqlrequest = "SELECT id_requests,user_id,phone FROM #__sv_apptpro2_requests WHERE email = '".$user->get('email')."';";
 						$db->setQuery($sqlrequest);
 						$db->query($sqlrequest);
@@ -311,7 +314,11 @@ class plgSystemSocialLogin extends JPlugin
 						{
 							if ($req[user_id] != $user->get('id'))
 							{
+								$fields['user_id'] = $user->get('id');
+								$fields['name'] = $user->get('name');
 								//print_r($req);
+								$dbfields = explode(",", "user_id,name");
+								$sqlupdate = "UPDATE #__sv_apptpro2_requests SET ".$this->dbSet($dbfields, $fields)." WHERE `id_requests` = ".$req[id_requests].";";
 								$sqlupdate = "UPDATE #__sv_apptpro2_requests SET `user_id` = '".intval($user->get('id'))."', `name`= '".$user->get('name')."' WHERE `id_requests` = ".$req[id_requests].";";
 								$db->setQuery($sqlupdate);
 								if (!$db->query($sqlupdate))
@@ -327,92 +334,102 @@ class plgSystemSocialLogin extends JPlugin
 
 					echo "Check VirtueMart2 Pro2\n<br/>";
 					/* Check if the VirtueMart2 tables are there */
-//					$query = "SHOW TABLES LIKE '%__virtuemart_vmusers'";
-					$query = "SHOW TABLES LIKE '%__todo'";
+					$query = "SHOW TABLES LIKE '%__virtuemart_userinfos'";
 					$db->setQuery($query);
 					$tableexists = $db->loadResult();
 					if (isset($tableexists))
 					{
 						/* Force VirtueMart default setting */
-						$hash_secret = "VirtueMartIsCool";
-						$timestamp = time();
 						$fields = array();
-						$fields['user_info_id'] = md5(uniqid($hash_secret));
-						$fields['user_id'] =  intval($user->get('id'));
-						$fields['address_type_name'] =  '-default-';
-						$fields['cdate'] =  $timestamp;
-						$fields['mdate'] =  $timestamp;
-						$fields['perms'] =  "shopper";
-						$fields['email'] = $user->get('email');
-						$fields['country'] = 'ES';
+						$fields['virtuemart_user_id'] = intval($user->get('id'));
+						$fields['address_type'] =  'BT';
+						$fields['name'] = $auth_info['profile']['name']['givenName'];
 						$fields['last_name'] = $auth_info['profile']['name']['familyName'];
 						$fields['first_name'] = $auth_info['profile']['name']['givenName'];
-						$fields['phone'] = $phone;
-						$fields['mobile'] = $mobile;
-						$fields['shopper_group_id'] = 5;
-						$fields['bank_account_type'] = "Checking";
-						$fields['vendor_id'] = 1;
-						$auth_provider = $auth_info['profile']['providerName'];
+						$fields['phone_1'] = $phone ? $phone : '';
+						$fields['phone_2'] = $mobile ? $mobile : '';
+						$fields['virtuemart_state_id'] = 330; // Barcelona
+						$fields['virtuemart_country_id'] = 195; // Spain
+						$fields['modified_on'] = date("Y-m-d H:i:s");
+						$fields['modified_by'] = 588; // Joomla Admin user_id
 						//print_r($fields);
 
-						// User details info
-						$check = "SELECT COUNT(user_info_id) AS num_rows FROM #__virtuemart_userinfos WHERE user_id='" . $fields['virtuemart_user_id'] . "'";
+						// Customer Information - User details info
+						$check = "SELECT COUNT(virtuemart_user_id) AS num_rows FROM #__virtuemart_userinfos WHERE `virtuemart_user_id`='" . $fields['virtuemart_user_id'] . "'";
 						$db->setQuery($check);
 						$db->query($check);
+						$vmquery = "";
 						if (intval($db->loadResult()) == 0) {
 							//echo "Doing Insert\n";
-							$vmquery = "INSERT INTO #__virtuemart_userinfos ";
-							$vmquery .= "(user_info_id,user_id,address_type,address_type_name,company,title,last_name,first_name,middle_name,phone_1,phone_2,fax,address_1,address_2,city,state,country,zip,user_email,cdate,mdate,perms,bank_account_nr,bank_name,bank_sort_code,bank_iban,bank_account_holder,bank_account_type)";
-							$vmquery .= " VALUES ";
-							$vmquery .= "('".$fields['user_info_id']."', '".$fields['user_id']."', 'BT', NULL, NULL, NULL, '".$fields['last_name']."', '".$fields['first_name']."', NULL, '".$fields['phone']."', '".$fields['mobile']."', NULL, '', NULL, '', '', 'ESP', '', '".$fields['email']."', '".$fields['cdate']."', '".$fields['mdate']."', 'shopper', '', '". $auth_provider ."', '', '', '', 'Checking')";
+							$fields['created_on'] = date("Y-m-d H:i:s");
+							$fields['created_by'] = 588;
+							$dbfields = explode(",", "virtuemart_user_id,address_type,name,last_name,first_name,phone_1,phone_2,virtuemart_state_id,virtuemart_country_id,created_on,created_by,modified_on,modified_by");
+							$vmquery  = "INSERT INTO #__virtuemart_userinfos SET ".$this->dbSet($dbfields, $fields).";";
 						} else {
 							//echo "Doing Update\n";
-							$vmquery = "UPDATE #__virtuemart_userinfos SET `bank_name` = '".$auth_provider."', `mdate` = '".time()."', `perms` = '".$fields['perms']."', `user_email` = '".$fields['email']."', `phone_2` = '".$fields['mobile']."'";
-							$vmquery .= " WHERE user_id=".$fields['user_id']." AND address_type='BT'";
+							// Should we override all entries?
+							$dbfields = explode(",", "virtuemart_user_id,address_type,name,last_name,first_name,phone_1,phone_2,virtuemart_state_id,virtuemart_country_id,modified_on,modified_by");
+							$vmquery  = "UPDATE #__virtuemart_userinfos SET ".$this->dbSet($dbfields, $fields)." WHERE `virtuemart_user_id`='" .$fields['virtuemart_user_id']. "'";
 						}
 						$db->setQuery($vmquery);
-						if (!$db->query($vmquery)) {
+						if (!$db->query($vmquery))
+						{
 						   JERROR::raiseError(500, $db->stderr());
 						}
 
-						// User - Vendor - relationship
-						$check = "SELECT COUNT(user_id) AS num_rows FROM #__vm_auth_user_vendor WHERE vendor_id='".$fields['vendor_id']."' AND user_id='" .$fields['user_id']. "'";
+						// Holds the unique user data
+						// Unset value will the DB default
+						$fields = array();
+						$fields['virtuemart_user_id'] = intval($user->get('id'));
+						$fields['customer_number'] = md5($user->get('username'));
+						$fields['virtuemart_paymentmethod_id'] = 0;
+						$fields['virtuemart_shipmentmethod_id'] = 0;
+						$fields['modified_on'] = date("Y-m-d H:i:s");
+						$fields['modified_by'] = 588;
+
+						$check = "SELECT COUNT(virtuemart_user_id) AS num_rows FROM #__virtuemart_vmusers WHERE `virtuemart_user_id`='" .$fields['virtuemart_user_id']. "'";
 						$db->setQuery($check);
 						$db->query($check);
+						$vmquery = "";
 						if(intval($db->loadResult()) == 0) {
 							//echo "Doing Insert\n";
-							$vmq = "INSERT INTO #__vm_auth_user_vendor (user_id,vendor_id)";
-							$vmq .= " VALUES ";
-							$vmq .= "('" . $fields['user_id'] . "','" . $fields['vendor_id'] . "') ";
+							$fields['created_on'] = date("Y-m-d H:i:s");
+							$fields['created_by'] = 588;
+							$dbfields = explode(",", "virtuemart_user_id,customer_number,virtuemart_paymentmethod_id,virtuemart_shipmentmethod_id,created_on,created_by,modified_on,modified_by");
+							$vmquery = "INSERT INTO #__virtuemart_vmusers SET ".$this->dbSet($dbfields, $fields).";";
 						} else {
 							//echo "Doing Update\n";
-							$vmq = "UPDATE #__vm_auth_user_vendor set ";
-							$vmq .= "vendor_id='".$fields['vendor_id']."' ";
-							$vmq .= "WHERE user_id='" . $fields['user_id'] . "'";
+							// Should we override all entries?
+							$dbfields = explode(",", "virtuemart_user_id,customer_number,virtuemart_paymentmethod_id,virtuemart_shipmentmethod_id,modified_on,modified_by");
+							$vmquery = "UPDATE #__virtuemart_vmusers SET ".$this->dbSet($dbfields, $fields)." WHERE `virtuemart_user_id`='" .$fields['virtuemart_user_id']. "'";
 						}
-						$db->setQuery($vmq);
-						if (!$db->query($vmq)) {
-						   JERROR::raiseError(500, $db->stderr());
+						$db->setQuery($vmquery);
+						if (!$db->query($vmquery))
+						{
+							JERROR::raiseError(500, $db->stderr());
 						}
 
-						// User - Shopper - ShopperGroup - relationship
-						$check = "SELECT COUNT(user_id) AS num_rows FROM #__vm_shopper_vendor_xref WHERE vendor_id='".$fields['vendor_id']."' AND user_id='" . $fields['user_id'] . "'";
+						// xref table for users to shopper group
+						$fields = array();
+						$fields['virtuemart_user_id'] = intval($user->get('id'));
+						$fields['virtuemart_shoppergroup_id'] = 2; // Shopper group
+
+						$check = "SELECT COUNT(virtuemart_user_id) AS num_rows FROM #__virtuemart_vmuser_shoppergroups WHERE `virtuemart_user_id`='" . $fields['virtuemart_user_id'] . "'";
 						$db->setQuery($check);
 						$db->query($check);
+						$vmquery = "";
 						if(intval($db->loadResult()) == 0) {
 							//echo "Doing Insert\n";
-							$vmq  = "INSERT INTO #__vm_shopper_vendor_xref ";
-							$vmq .= "(user_id,vendor_id,shopper_group_id,customer_number) ";
-							$vmq .= "VALUES ('" . $fields['user_id'] . "', '" . $fields['vendor_id'] . "','".$fields['shopper_group_id']."', '".$fileds['customer_number']."')";
+							$dbfields = explode(",", "virtuemart_user_id,virtuemart_shoppergroup_id");
+							$vmquery = "INSERT INTO #__virtuemart_vmuser_shoppergroups SET ".$this->dbSet($dbfields, $fields).";";
 						} else {
 							//echo "Doing Update\n";
-							$vmq = "UPDATE #__vm_shopper_vendor_xref SET ";
-							$vmq .= "shopper_group_id='".$fields['shopper_group_id']."' ";
-							$vmq .= ",vendor_id ='".$fields['vendor_id']."' ";
-							$vmq .= "WHERE user_id='" . $fields['user_id'] . "' ";
+							// Should we override all entries?
+							$dbfields = explode(",", "virtuemart_user_id,virtuemart_shoppergroup_id");
+							$vmquery = "UPDATE #__virtuemart_vmuser_shoppergroups SET ".$this->dbSet($dbfields, $fields)." WHERE `virtuemart_user_id`='" . $fields['virtuemart_user_id'] . "'";
 						}
-						$db->setQuery($vmq);
-						if (!$db->query($vmq))
+						$db->setQuery($vmquery);
+						if (!$db->query($vmquery))
 						{
 							JERROR::raiseError(500, $db->stderr());
 						}
@@ -454,7 +471,7 @@ class plgSystemSocialLogin extends JPlugin
 
 					// Redirect
 					$returnURL = $this->getReturnURL();
-					$mainframe->redirect($returnURL);
+					JFactory::getApplication()->redirect($returnURL);
 
 				} // End valid users
 			} // End Valid Auth
@@ -489,6 +506,20 @@ class plgSystemSocialLogin extends JPlugin
 			//$url = $uri->toString(array('path', 'query', 'fragment'));
 		}
 		return $url;
+	}
+
+	function dbSet($fields, $data = array())
+	{
+		if (!$data) $data = &$_POST;
+		$set='';
+		foreach ($fields as $field)
+		{
+			if (isset($data[$field]))
+			{
+				$set.="`$field`='".mysql_real_escape_string($data[$field])."', ";
+			}
+		}
+		return substr($set, 0, -2);
 	}
 }
 
