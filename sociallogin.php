@@ -4,7 +4,7 @@
  * Does all the magic!
  *
  * @package                     Social Login
- * @version                     0.7.0
+ * @version                     1.0.0
  *
  * @author                      xbgmsharp@gmail.com
  * @link                        https://github.com/xbgmsharp/plg_sociallogin
@@ -12,11 +12,9 @@
  * @license                     http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL
  */
 
-/*defined( '_JEXEC' ) or die( 'Restricted access' );
-jimport('joomla.plugin.plugin');
-jimport('joomla.user.user');
-jimport('joomla.user.helper');
-*/
+defined( '_JEXEC' ) or ( 'Restricted access' ); // no direct access allowed to this file
+jimport('joomla.plugin.plugin'); // import Joomla! plugin library
+
 class plgSystemSocialLogin extends JPlugin
 {
 	function plgSystemSocialLogin(&$subject, $config)
@@ -41,17 +39,13 @@ class plgSystemSocialLogin extends JPlugin
 			{
 				$token = $_POST['token'];
 			}
-			$db =& JFactory::getDBO();
-			$query = "SELECT * FROM #__sociallogin WHERE propname='key'";
-			$db->setQuery($query);
-			$row = $db->loadObject();
-			$apiKey = $row->propvalue;
+
+			$apiKey = $this->params->get('apikey');
 			$post_data = array('token' => $token,
 					 'apiKey' => $apiKey,
 					 'format' => 'json');
 
-			//	if ($this->params->def('usecurl', 1)) { // J2.5
-			if ($this->params->get('usecurl') == 1) // J1.5
+			if ($this->params->get('usecurl') == 1)
 			{
 				$curl = curl_init();
 				curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
@@ -71,10 +65,11 @@ class plgSystemSocialLogin extends JPlugin
 			// parse the json response into an associative array
 			$auth_info = json_decode($raw_json, true);
 
-			print_r($auth_info);
+			//print_r($auth_info);
 			// process the auth_info response
 			if ($auth_info['stat'] == 'ok')
 			{
+				// Check if user exist in the mapping table
 				$db =& JFactory ::getDBO();
 				$rpxid = 'rpx'.md5($auth_info['profile']['identifier']);
 				$query = "SELECT userid FROM #__sociallogin_mapping WHERE rpxid='".$rpxid."'";
@@ -99,6 +94,39 @@ class plgSystemSocialLogin extends JPlugin
 						$db->query();
 					}
 				}
+				else
+				{
+					print "Migrated User\n<br/>";
+					// like me you did a migration to J2.5
+                                        if (isset($auth_info['profile']['email']))
+                                        {
+                                                $email = $auth_info['profile']['email'];
+                                        }
+                                        else if (isset($auth_info['profile']['name']['email']))
+                                        {
+ 	                                        $email = $auth_info['profile']['email'];
+                                         }
+					// Check if a use exist with this email
+	                                $query = "SELECT id FROM #__users WHERE email='".$email."'";
+	                                $db->setQuery($query);
+	                                $userid = $db->loadResult();
+					if ($userid != 0)
+					{
+                                                $servicename = "";
+                                                if (isset($auth_info['profile']['providerName']))
+                                                {
+                                                        $servicename = $auth_info['profile']['providerName'];
+                                                }
+						// Existing user with no mapping...add it
+                                                $query = "INSERT INTO #__sociallogin_mapping (userid, rpxid, servicename) VALUES ('".$userid."','".$rpxid."','".$servicename."')";
+                                                $db->setQuery($query);
+                                                if (!$db->query())
+                                                {
+                                                        JError::raiseError(500, $db->stderror());
+                                                }
+						$newuser = false;
+					}
+				}
 
 				if ($newuser == true)
 				{
@@ -108,30 +136,16 @@ class plgSystemSocialLogin extends JPlugin
 					$config = JComponentHelper::getParams('com_users');
 					$defaultUserGroup = $config->get('new_usertype', 2);
 
-					// $host = JFactory::getURI()->getHost();
-					// $domain = substr($host,4); // strips the www.
 					print "Set Email\n<br/>";
 					$email = "";
-					if ($this->params->get('fakemail') == 0)
+					if (isset($auth_info['profile']['email']))
 					{
-						if (isset($auth_info['profile']['email']))
-						{
-							$email = $auth_info['profile']['email'];
-						}
-						else if (isset($auth_info['profile']['name']['email']))
-						{
-							$email = $auth_info['profile']['email'];
-						}
-						else
-						{
-							$email = str_replace(" ","_",$userName)."@".$domain;
-						}
+						$email = $auth_info['profile']['email'];
 					}
-					else
+					else if (isset($auth_info['profile']['name']['email']))
 					{
-						$email = str_replace(" ","_",$userName)."@".$domain;
+						$email = $auth_info['profile']['email'];
 					}
-					//$pwd = JUserHelper::genRandomPassword();
 
 					print "Set displayName & Username\n<br/>";
 					$displayName = "";
@@ -154,7 +168,6 @@ class plgSystemSocialLogin extends JPlugin
 					}
 
 					print "Set Formated Name\n<br/>";
-
 					/* Set prefer displayName if Formated Name */
 					if (isset($auth_info['profile']['name']['formatted']))
 					{
@@ -183,24 +196,25 @@ class plgSystemSocialLogin extends JPlugin
 
 					print "Set value to instance\n<br/>";
 					// Set value to Instance
-					$instance->set('id' , 0);
-					$instance->set('name' , $displayName);
-					$instance->set('username' , $preferredUsername);
-					//$instance->set('password_clear' , $pwd);
-					$instance->set('email' , $email); // Result should contain an email (check)
-					$instance->set('usertype' , 'deprecated');
-					$instance->set('groups' , array($defaultUserGroup));
+					$instance->set('id' , 		0);
+					$instance->set('name' , 	$displayName);
+					$instance->set('username' , 	$preferredUsername);
+					$instance->set('email' , 	$email);
+					$instance->set('usertype' , 	'');
+					$instance->set('groups' , 	array($defaultUserGroup));
 
 					print "Set Parameters\n<br/>";
 					// Force Parameters
+					//$language = $this->params->get('language')
+					//$timezone = $this->params->get('timezone')
 					$instance->setParam("language", "es-ES");
-					$instance->setParam("timezone", "Europe\/Madrid");
+					$instance->setParam("timezone", "Europe/Madrid");
 
 					print "Save user in DB\n<br/>";
 					// Save user
 					if (!$instance->save())
 					{
-						echo "Error not a new user\n<br/>";
+						echo "Error creating new user\n<br/>";
 						JError::raiseWarning(500, $instance->getError());
 						JError::raiseError(500, $instance->getError());
 						// updating value
@@ -210,11 +224,10 @@ class plgSystemSocialLogin extends JPlugin
 							JError::raiseWarning(500, $instance->getError());
 							JError::raiseError(500, $instance->getError());
 						}
-						//return false;
 					}
 					else
 					{
-						// Add mapping from easy find
+						// Add mapping for fast find
 						$servicename = "";
 						if (isset($auth_info['profile']['providerName']))
 						{
@@ -228,9 +241,45 @@ class plgSystemSocialLogin extends JPlugin
 						}
 					}
 
+					print "User Save with ID: ". $instance->get('id') ."\n<br/>";
+					$user =& $instance;
+
+				} // End new user
+
+				// Only if the user is valid (existing or new)
+				if (isset($user) and (intval($user->get('id')) != 0))
+				{
+					print_r($auth_info);
+
+					$instance = JUser::getInstance();
+					if (!$instance->load(intval($user->get('id'))))
+					{
+						// User does not Exist this is bad if we did get to this point without user
+						JError::raiseError(500, JText::_('User does not Exist'));
+						return false;
+					}
+
+					/* Force an overwrite of some user details info */
+					echo "Update user settings\n<br/>";
+					if (isset($auth_info['profile']['name']['formatted']))
+					{
+						//$instance->load(intval($user->get('id')));
+						$instance->setParam("language", "es-ES");
+						$instance->setParam("timezone", "Europe/Madrid");
+						$instance->save(true);
+						$displayName = $auth_info['profile']['name']['formatted'];
+						$sqluser = "UPDATE #__users SET `name` = '". $displayName. "' WHERE `id` = '". $user->get('id') ."';";
+						$db->setQuery($sqluser);
+						if (!$db->query($sqluser))
+						{
+							JERROR::raiseError(500, $db->stderr());
+						}
+					}
+					/* End Force an overwrite */
+
 					// Maybe an option and as a function
 					/*
-					// check if the community builder tables are there
+					// Check if the community builder tables are there
 					$query = "SHOW TABLES LIKE '%__comprofiler'";
 					$db->setQuery($query);
 					$tableexists = $db->loadResult();
@@ -245,44 +294,8 @@ class plgSystemSocialLogin extends JPlugin
 					}
 					*/
 
-					print "User Save with ID: ". $instance->get('id') ."\n<br/>";
-					$user =& $instance;
-
-				} // End new user
-
-				// Only if the user is valid (existing or new)
-				if (isset($user) and (intval($user->get('id')) != 0))
-				{
-					print_r($auth_info);
-
-					$instance = JUser::getInstance();
-					/* Force an overwrite of some user details info */
-					if (!$instance->load(intval($user->get('id'))))
-					{
-						// User does not Exist this is bad if we did get to this point without user
-						JError::raiseError(500, JText::_('User does not Exist'));
-						return false;
-					}
-
-					if (isset($auth_info['profile']['name']['formatted']))
-					{
-						//$instance->load(intval($user->get('id')));
-						$instance->setParam("language", "es-ES");
-						$instance->setParam("timezone", "Europe/Madrid");
-						$instance->save(true);
-						$displayName = $auth_info['profile']['name']['formatted'];
-						$sqluser = "UPDATE #__users SET `name` = '". $displayName. "' WHERE `id` = '". $user->get('id') ."';";
-						$db->setQuery($sqluser);
-						if (!$db->query($sqluser))
-						{
-							JERROR::raiseError(500, $db->stderr());
-						}
-						echo "End update user settings\n<br/>";
-					}
-					/* End Force an overwrite */
-
 					echo "Check Appointment Booking Pro2\n<br/>";
-					// check if the Appointment Booking Pro2 tables are there
+					/* Check if the Appointment Booking Pro2 tables are there */
 					$query = "SHOW TABLES LIKE '%__sv_apptpro2_requests'";
 					$db->setQuery($query);
 					$tableexists = $db->loadResult();
@@ -313,7 +326,8 @@ class plgSystemSocialLogin extends JPlugin
 					/* End Appointment Booking Pro2 */
 
 					echo "Check VirtueMart2 Pro2\n<br/>";
-					// check if the VirtueMart2 tables are there
+					/* Check if the VirtueMart2 tables are there */
+//					$query = "SHOW TABLES LIKE '%__virtuemart_vmusers'";
 					$query = "SHOW TABLES LIKE '%__todo'";
 					$db->setQuery($query);
 					$tableexists = $db->loadResult();

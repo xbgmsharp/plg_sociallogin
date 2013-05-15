@@ -1,20 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<install ttype="plugin" group="system" version="2.5">
+<extension type="plugin" group="system" version="2.5">
 	<name>Social Login</name>
-	<version>0.7.0</version>
-	<creationDate>2011-05-27</creationDate>
-	<author>IVM-TC Wien | Social Login project</author>
-	<authorEmail>socialmedia@ivm.at</authorEmail>
-	<authorUrl>http://sociallogin.sourceforge.net</authorUrl>
+	<version>1.0.0</version>
+	<creationDate>2013-05-11</creationDate>
+	<author>xbgmsharp</author>
+	<authorEmail>xbgmsharp@gmail.com</authorEmail>
+	<authorUrl>https://github.com/xbgmsharp/plg_sociallogin</authorUrl>
 	<copyright>(c) 2011 IVM Technical Consultants Wien</copyright>
 	<license>GNU/GPL v3, http://www.gnu.org/copyleft/gpl.html</license>
-	<description>Update for Joomla2.5. Plugin for the Social Login Joomla! extension. http://sociallogin.sourceforge.net</description>
+	<description>Janrain Social Login for Joomla2.5. Base on http://sociallogin.sourceforge.net</description>
 	<files>
 		<filename plugin="sociallogin">sociallogin.php</filename>
+		<filename plugin="sociallogin">index.html</filename>
+		<filename plugin="sociallogin">install.sql</filename>
+		<filename plugin="sociallogin">uninstall.sql</filename>
 	</files>
+	<install>
+		<sql>
+			<file charset="utf8" driver="mysql">install.sql</file> 
+		</sql>
+	</install>
+	<uninstall>
+		<sql>
+			<file charset="utf8" driver="mysql">uninstall.sql</file> 
+		</sql>
+	</uninstall>
 	<config>
 		<fields name="params">
-			<fieldset name="basic">
+			<fieldset name="basic" label="Plugin Settings">
+				<field name="must" type="spacer" default="Madatory settings" label="&lt;b&gt;Mandatory Settings&lt;/b&gt;" description="Madatory Settings" />
+				<field name="apikey" type="text" size="60" default="" label="API Key" description="Your Janrain Engage API Key"/>
+				<field name="optional" type="spacer" default="Optional settings" label="&lt;b&gt;Optional Settings&lt;/b&gt;" description="Optional Settings" />
 				<field name="login" type="menuitem" default="" disable="separator" label="Login Redirection URL" description="PARAMLOGINREDIRECTURL" />
 				<field name="usecurl" type="radio" default="1" label="Use curl library" description="The best option is to
 	use the php curl library. If for some reason you can not install this on your web server, then you need to switch this off.
@@ -22,11 +38,10 @@
 					<option value="0">No</option>
 					<option value="1">Yes</option>
 				</field>
-				<field name="fakemail" type="radio" default="1" label="Use dummy mail" description="Use a dummy mail address for the users that login with RPX. Some community sites like facebook don't reveil the mail address of the user. In this case SocialLogin for Joomla! will create a dummy (non-existing) address. If this option is switched on, it will create dummy addresses even if a real mail address is available.">
-					<option value="0">No</option>
-					<option value="1">Yes</option>
-				</field>
+				<field name="override" type="spacer" default="Override settings" label="&lt;b&gt;Override Settings&lt;/b&gt;" description="Override Settings" />
+				<field name="language" type="text" default="" label="Override Language" description="Force a value on user connection. Must be valid Joolma Language format, eg: en-GB" />
+				<field name="timezone" type="text" default="" label="Override TimeZone" description="Force a value on user connection. Must be a valid Joomla Timezone, eg:Europe/Madrid" />
 			</fieldset>
 		</fields>
 	</config>
-</install>
+</extension>
