@@ -11,9 +11,10 @@
 	<description>Janrain Social Login for Joomla2.5. Base on http://sociallogin.sourceforge.net</description>
 	<files>
 		<filename plugin="sociallogin">sociallogin.php</filename>
-		<filename plugin="sociallogin">index.html</filename>
-		<filename plugin="sociallogin">install.sql</filename>
-		<filename plugin="sociallogin">uninstall.sql</filename>
+		<filename>index.html</filename>
+		<filename>install.sql</filename>
+		<filename>uninstall.sql</filename>
+		<filename>LICENSE</filename>
 	</files>
 	<install>
 		<sql>
@@ -44,4 +45,7 @@
 			</fieldset>
 		</fields>
 	</config>
+	<updateservers>
+		<server type="extension" priority="1" name="Plugin Social Login Update Site">https://raw.github.com/xbgmsharp/plg_sociallogin/master/extension.xml</server>
+	</updateservers>
 </extension>
