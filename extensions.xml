@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<updates>
+	<update>
+		<name>Social Login</name>
+		<description>Plugin Social Login for loggin using Janrain in your Joomla website</description>
+		<element>sociallogin</element>
+		<type>plugin</type>
+		<folder>system</folder>
+		<versio>1.1.0</version>
+		<client_id>0</client_id>
+		<client>site</client>
+		<downloads>
+			<downloadurl type="full" format="tgz">https://github.com/xbgmsharp/plg_sociallogin/archive/master.zip<downloadurl>
+		</downloads>
+		<maintainer>xbgmsharp</maintainer>
+		<maintainerurl>https://github.com/xbgmsharp</maintainerurl>
+		<targetplatform name="joomla" version="2.5" />
+	</update>
+</updates>
